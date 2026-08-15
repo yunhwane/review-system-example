@@ -1,0 +1,19 @@
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# OS
+.DS_Store
+
+# 부하 테스트 결과 (요약만 docs/experiments 에 커밋한다)
+load-test/results/*.json
+load-test/results/*.csv
+
+# 로컬 환경 변수
+.env

@@ -1,0 +1,7 @@
+plugins {
+    // JDK 21 이 없는 환경에서도 Gradle 이 알아서 툴체인을 내려받게 한다.
+    // (Homebrew 의 openjdk@21 은 keg-only 라 자동 탐지되지 않는 경우가 있다)
+    id 'org.gradle.toolchains.foojay-resolver-convention' version '1.0.0'
+}
+
+rootProject.name = 'review-system'

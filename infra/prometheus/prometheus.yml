@@ -1,0 +1,23 @@
+global:
+  # 부하 테스트 중 지표 변화를 놓치지 않으려면 기본값(1m)보다 촘촘해야 한다.
+  scrape_interval: 5s
+  evaluation_interval: 5s
+
+scrape_configs:
+  - job_name: review-app
+    metrics_path: /actuator/prometheus
+    static_configs:
+      # 호스트에서 ./gradlew bootRun 으로 띄운 앱.
+      # v5 에서 앱을 여러 대로 늘리면 여기에 인스턴스를 추가한다.
+      - targets:
+          - "host.docker.internal:8080"
+        labels:
+          instance_name: app-1
+
+  - job_name: postgres
+    static_configs:
+      - targets: ["postgres-exporter:9187"]
+
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]

@@ -1,0 +1,224 @@
+{
+  "uid": "review-system-overview",
+  "title": "리뷰 시스템 — 부하/병목 대시보드",
+  "tags": ["review-system"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "5s",
+  "time": { "from": "now-15m", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "처리량 (RPS)",
+      "description": "초당 요청 수. 부하를 올려도 이 값이 더 안 오르면 그 지점이 시스템의 한계다.",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] },
+      "targets": [
+        {
+          "expr": "sum by (uri) (rate(http_server_requests_seconds_count{job=\"review-app\", uri!~\"/actuator.*\"}[1m]))",
+          "legendFormat": "{{uri}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "응답 시간 p50 / p95 / p99",
+      "description": "p95 가 200ms 를 넘는 지점이 이 레포에서 정의한 '한계점'이다. 평균이 아니라 p95 를 본다.",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 0.2 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum by (le) (rate(http_server_requests_seconds_bucket{job=\"review-app\", uri!~\"/actuator.*\"}[1m])))",
+          "legendFormat": "p50",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(http_server_requests_seconds_bucket{job=\"review-app\", uri!~\"/actuator.*\"}[1m])))",
+          "legendFormat": "p95",
+          "refId": "B"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(http_server_requests_seconds_bucket{job=\"review-app\", uri!~\"/actuator.*\"}[1m])))",
+          "legendFormat": "p99",
+          "refId": "C"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "DB 커넥션 풀 (HikariCP) ★ v1 의 병목",
+      "description": "active 가 풀 크기(10)에 붙어서 평평해지고 pending 이 0 위로 올라오면 커넥션 풀 고갈이다. 이때 CPU 는 오히려 한가하다.",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "targets": [
+        {
+          "expr": "hikaricp_connections_active{job=\"review-app\"}",
+          "legendFormat": "active (사용 중)",
+          "refId": "A"
+        },
+        {
+          "expr": "hikaricp_connections_idle{job=\"review-app\"}",
+          "legendFormat": "idle (놀고 있음)",
+          "refId": "B"
+        },
+        {
+          "expr": "hikaricp_connections_pending{job=\"review-app\"}",
+          "legendFormat": "pending (커넥션 기다리는 스레드) ★",
+          "refId": "C"
+        },
+        {
+          "expr": "hikaricp_connections_max{job=\"review-app\"}",
+          "legendFormat": "max (풀 크기)",
+          "refId": "D"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "커넥션 획득 대기 시간",
+      "description": "요청이 DB 커넥션을 받기까지 기다린 시간. 이 값이 응답 시간의 대부분을 차지하면 풀을 늘릴 차례다 (단, 무한정은 아니다 — v4 참고).",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
+      "targets": [
+        {
+          "expr": "rate(hikaricp_connections_acquire_seconds_sum{job=\"review-app\"}[1m]) / clamp_min(rate(hikaricp_connections_acquire_seconds_count{job=\"review-app\"}[1m]), 0.001)",
+          "legendFormat": "평균 획득 대기",
+          "refId": "A"
+        },
+        {
+          "expr": "rate(hikaricp_connections_usage_seconds_sum{job=\"review-app\"}[1m]) / clamp_min(rate(hikaricp_connections_usage_seconds_count{job=\"review-app\"}[1m]), 0.001)",
+          "legendFormat": "평균 점유 시간",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "톰캣 스레드",
+      "description": "busy 가 max 에 붙으면 요청이 큐에서 대기한다. v1 에서는 커넥션 풀이 먼저 막혀서 여기까지 잘 안 온다.",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 16 },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "targets": [
+        {
+          "expr": "tomcat_threads_busy_threads{job=\"review-app\"}",
+          "legendFormat": "busy",
+          "refId": "A"
+        },
+        {
+          "expr": "tomcat_threads_current_threads{job=\"review-app\"}",
+          "legendFormat": "current",
+          "refId": "B"
+        },
+        {
+          "expr": "tomcat_threads_config_max_threads{job=\"review-app\"}",
+          "legendFormat": "max",
+          "refId": "C"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "CPU 사용률",
+      "description": "'CPU 는 노는데 느리다' 를 확인하는 패널. 병목이 CPU 가 아니라 대기(I/O·락·풀)라는 증거가 된다.",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 16 },
+      "fieldConfig": { "defaults": { "unit": "percentunit", "max": 1, "min": 0 }, "overrides": [] },
+      "targets": [
+        {
+          "expr": "process_cpu_usage{job=\"review-app\"}",
+          "legendFormat": "앱 프로세스",
+          "refId": "A"
+        },
+        {
+          "expr": "system_cpu_usage{job=\"review-app\"}",
+          "legendFormat": "시스템 전체",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "JVM 힙 / GC",
+      "description": "힙이 톱니 모양으로 꽉 차고 GC pause 가 길어지면 그때는 메모리가 병목이다.",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 16 },
+      "fieldConfig": { "defaults": { "unit": "bytes" }, "overrides": [] },
+      "targets": [
+        {
+          "expr": "sum(jvm_memory_used_bytes{job=\"review-app\", area=\"heap\"})",
+          "legendFormat": "heap used",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(jvm_memory_max_bytes{job=\"review-app\", area=\"heap\"})",
+          "legendFormat": "heap max",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "에러율 (5xx)",
+      "description": "커넥션 타임아웃(30초)이 터지기 시작하면 여기서 먼저 보인다.",
+      "gridPos": { "h": 7, "w": 12, "x": 0, "y": 24 },
+      "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] },
+      "targets": [
+        {
+          "expr": "sum(rate(http_server_requests_seconds_count{job=\"review-app\", status=~\"5..\"}[1m]))",
+          "legendFormat": "5xx",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(rate(http_server_requests_seconds_count{job=\"review-app\", status=~\"4..\"}[1m]))",
+          "legendFormat": "4xx",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "Postgres — 커넥션 수 / 초당 트랜잭션",
+      "description": "앱을 여러 대로 늘렸을 때(v5) 커넥션 수가 max_connections(100)에 닿는지 확인하는 패널.",
+      "gridPos": { "h": 7, "w": 12, "x": 12, "y": 24 },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "targets": [
+        {
+          "expr": "sum(pg_stat_database_numbackends{datname=\"reviewdb\"})",
+          "legendFormat": "커넥션 수",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(rate(pg_stat_database_xact_commit{datname=\"reviewdb\"}[1m]))",
+          "legendFormat": "커밋/초",
+          "refId": "B"
+        },
+        {
+          "expr": "sum(rate(pg_stat_database_tup_fetched{datname=\"reviewdb\"}[1m]))",
+          "legendFormat": "초당 읽은 행 수 (인덱스 없으면 폭발)",
+          "refId": "C"
+        }
+      ]
+    }
+  ]
+}
