@@ -1,7 +1,9 @@
 package com.example.reviewsystem.service;
 
 import com.example.reviewsystem.api.dto.CreateReviewRequest;
+import com.example.reviewsystem.api.dto.CursorResponse;
 import com.example.reviewsystem.api.dto.PageResponse;
+import com.example.reviewsystem.api.dto.ReviewCursor;
 import com.example.reviewsystem.api.dto.ReviewResponse;
 import com.example.reviewsystem.api.dto.ReviewSummaryResponse;
 import com.example.reviewsystem.domain.Member;
@@ -71,6 +73,50 @@ public class ReviewService {
                 .toList();
 
         return PageResponse.of(reviews, content);
+    }
+
+    /**
+     * 리뷰 목록 조회 — 커서(keyset) 페이징. v2 에서 추가.
+     *
+     * <p>OFFSET 방식과의 차이는 두 가지다.
+     * <ol>
+     *   <li><b>count 쿼리가 없다.</b> 총 개수를 세지 않으므로 요청당 훑는 행이 크게 준다.
+     *       v2-2 측정에서 요청당 1,345 행 중 약 1,300 행이 count 였다.</li>
+     *   <li><b>깊은 페이지도 비용이 같다.</b> 앞의 행을 세지도 버리지도 않는다.</li>
+     * </ol>
+     *
+     * <p>N+1 은 여전히 남아 있다. 그건 다음 사이클에서 따로 측정하며 고친다.
+     *
+     * <p>근거: docs/adr/0003-cursor-pagination.md
+     */
+    @Transactional(readOnly = true)
+    public CursorResponse<ReviewResponse> getReviewsByCursor(Long productId, String cursor, int size) {
+        int limit = Math.min(Math.max(size, 1), MAX_PAGE_SIZE);
+
+        // 다음 페이지 존재 여부를 별도 쿼리 없이 알아내려고 한 건 더 읽는다.
+        // count 를 없애 놓고 hasNext 때문에 쿼리를 하나 더 쓰면 의미가 없다.
+        int fetchSize = limit + 1;
+
+        List<Review> rows;
+        if (cursor == null || cursor.isBlank()) {
+            rows = reviewRepository.findFirstPage(productId, fetchSize);
+        } else {
+            ReviewCursor decoded = ReviewCursor.decode(cursor);
+            rows = reviewRepository.findAfterCursor(productId, decoded.createdAt(), decoded.id(), fetchSize);
+        }
+
+        boolean hasNext = rows.size() > limit;
+        List<Review> page = hasNext ? rows.subList(0, limit) : rows;
+
+        List<ReviewResponse> content = page.stream()
+                .map(ReviewResponse::from)
+                .toList();
+
+        String nextCursor = hasNext
+                ? ReviewCursor.of(page.get(page.size() - 1)).encode()
+                : null;
+
+        return CursorResponse.of(content, nextCursor);
     }
 
     /**

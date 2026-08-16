@@ -1,5 +1,9 @@
 # 부하 테스트
 
+> **측정 방법론은 [docs/03-load-testing.md](../docs/03-load-testing.md)에 있습니다.**
+> 닫힌 모델 vs 열린 모델, 장비 보정, 부하 도구가 병목인지 판별하는 표가 거기 있습니다.
+> 이 문서는 실행 방법이고, 그 문서는 **측정값을 믿어도 되는지 판단하는 법**입니다.
+
 ## 설치
 
 ```bash
@@ -9,8 +13,14 @@ brew install k6
 ## 실행
 
 ```bash
-# 리뷰 목록 조회 (주력 시나리오, 약 6분)
+# 리뷰 목록 조회 (주력 시나리오, 약 6분) — OFFSET 페이징
 k6 run load-test/k6/browse.js
+
+# 같은 시나리오의 커서(keyset) 페이징 버전. browse.js 와 짝으로 비교한다
+k6 run load-test/k6/browse-cursor.js
+
+# 부하를 올려서 한계점을 찾을 때 (think time 을 줄인다)
+k6 run -e THINK_TIME=0.2 load-test/k6/browse.js
 
 # 평점 요약 API (집계가 무거운 시나리오, 약 3분)
 k6 run load-test/k6/summary.js
@@ -48,6 +58,8 @@ k6 run --out json=load-test/results/v1-browse.json load-test/k6/browse.js
 
 - k6 자체가 CPU를 먹기 때문에, 앱의 한계보다 낮은 수치가 나올 수 있습니다
 - k6 실행 중 `top`으로 k6 프로세스의 CPU를 확인하세요. k6가 코어를 다 쓰고 있으면 측정값을 신뢰할 수 없습니다
+- **실측 예**: 1,341 RPS 시점에 k6가 약 4.6코어를 썼습니다 (앱 2.3 + DB 1.65를 합친 것보다 큽니다).
+  원인은 스크립트의 `JSON.parse`였습니다. 판별과 처방은 [docs/03-load-testing.md](../docs/03-load-testing.md) 3절 참고
 - macOS는 기본 파일 디스크립터 한도가 낮습니다. VU를 크게 올릴 거면 `ulimit -n 65536`
 - 절대값보다 **변경 전후의 비율**을 보세요. 같은 노트북에서 잰 상대 비교는 신뢰할 수 있습니다
 
