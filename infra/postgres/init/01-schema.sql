@@ -34,3 +34,6 @@ CREATE TABLE review (
 -- v2 에서 아래를 실행하고 같은 부하 테스트를 다시 돌려 볼 것:
 --   CREATE INDEX idx_review_product_created ON review (product_id, created_at DESC);
 -- 컬럼 순서가 왜 (product_id, created_at) 이고 그 반대가 아닌지 설명할 수 있어야 한다.
+--
+-- 적용용 스크립트: infra/postgres/migrations/v2-01-index-review-product-created.sql
+-- (일부러 이 디렉터리 밖에 두었다. 여기 넣으면 자동 실행돼서 v1 초기 조건이 사라진다.)
