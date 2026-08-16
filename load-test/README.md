@@ -22,6 +22,13 @@ k6 run load-test/k6/browse-cursor.js
 # 부하를 올려서 한계점을 찾을 때 (think time 을 줄인다)
 k6 run -e THINK_TIME=0.2 load-test/k6/browse.js
 
+# ★ 열린 모델 — 지금의 주력. RPS 를 직접 지정하고 dropped_iterations 로 천장을 판정한다
+k6 run -e MAX_RATE=3000 load-test/k6/browse-arrival.js                  # OFFSET
+k6 run -e MAX_RATE=3000 -e MODE=cursor load-test/k6/browse-arrival.js   # 커서
+
+# 측정 장비 자체의 절대 상한을 잰다 (새 장비에서 제일 먼저 할 것)
+k6 run load-test/k6/calibrate.js
+
 # 평점 요약 API (집계가 무거운 시나리오, 약 3분)
 k6 run load-test/k6/summary.js
 
@@ -31,6 +38,10 @@ k6 run --out json=load-test/results/v1-browse.json load-test/k6/browse.js
 ```
 
 ## VU 를 현실의 동시 사용자로 환산하기
+
+> 아래는 **닫힌 모델(`browse.js`, `browse-cursor.js`)에만 해당**합니다.
+> 열린 모델(`browse-arrival.js`)은 RPS 를 직접 지정하므로 이 환산이 필요 없습니다.
+> v1~v2-3 계보를 재현할 때만 쓰세요.
 
 **k6 의 VU 수는 동시 사용자 수가 아닙니다.** 이걸 혼동하면 결론이 통째로 틀어집니다.
 
