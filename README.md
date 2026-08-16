@@ -97,6 +97,14 @@ DB 시드 데이터(상품 1,000개 · 리뷰 100,000건)는 Postgres 컨테이�
 
 - [v1 베이스라인 측정](docs/experiments/2026-08-15-v1-baseline.md) — 레포 세팅 중 돌린 참고 측정값.
   136 RPS에서 막혔고 원인은 커넥션 풀 고갈이었습니다. **직접 다시 돌려서 자기 숫자로 채우세요.**
+- [v1 재측정 (warm 캐시)](docs/experiments/2026-08-16-v1-warm-cache-rerun.md) — 코드를 안 바꿨는데 294 RPS.
+  절대값은 흔들려도 `한계 RPS = 풀 크기 ÷ 점유 시간`은 두 번 다 맞았습니다.
+- [v2-1 인덱스 추가](docs/experiments/2026-08-16-v2-index-product-created.md) — p95 447.8ms → 31.5ms.
+  다만 OFFSET 깊은 페이지는 인덱스로 고쳐지지 않습니다.
+- [v2-2 부하 시나리오 상향](docs/experiments/2026-08-16-v2-loadgen-thinktime.md) — 시스템은 그대로 두고
+  측정 도구만 고쳐서 한계점 1,404 RPS를 처음 찾았습니다. **포화됐는데 SLO는 통과했습니다.**
+- [v2-3 커서 페이징](docs/experiments/2026-08-16-v2-cursor-pagination.md) — 훑는 행을 97% 줄였는데
+  **처리량이 그대로였습니다.** 가설이 틀린 실험이고, 그래서 가장 배울 게 많습니다.
 
 ## 설계 결정 기록 (ADR)
 
